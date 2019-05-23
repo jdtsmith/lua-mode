@@ -243,6 +243,12 @@ Should be a list of strings."
   :type 'string
   :group 'lua)
 
+(defcustom lua-shell-maximum-completions 1000
+  "The maximum number of completions items to request from lua.
+Reduce if completion performance on large tables suffers."
+  :type 'integer
+  :group 'lua)
+
 (defvar lua-process-buffer nil
   "Buffer used for communication with the Lua process")
 
@@ -355,7 +361,6 @@ Usually, stdin:XX line number points to nowhere."
           (compilation-set-window (display-buffer (marker-buffer msg)) msg)
           (goto-char msg))
       ad-do-it)))
-
 
 (defcustom lua-indent-string-contents nil
   "If non-nil, contents of multiline string will be indented.
@@ -1629,10 +1634,16 @@ This function just searches for a `end' at the beginning of a line."
           (forward-line)))
     ret))
 
+(defvar lua-process-complete-code-filename
+  (expand-file-name "emacs_lua_complete.lua"
+		    (file-name-directory load-file-name))
+  "Path to the associate lua completion function definition.")
 (defvar lua-process-init-code
   (mapconcat
    'identity
-   '("local loadstring = loadstring or load"
+   `(
+     ,(concat "dofile(\"" lua-process-complete-code-filename "\")")
+     "local loadstring = loadstring or load"
      "function luamode_loadstring(str, displayname, lineoffset)"
      "  if lineoffset > 1 then"
      "    str = string.rep('\\n', lineoffset - 1) .. str"
@@ -1836,69 +1847,26 @@ complete.  If PROCESS not passed, get or create a process."
         (error "Not on a function definition")))))
 
 (defsubst lua-completion-trim-input (str)
-  (format "'%s'," (string-trim str)))
+  (format "'%s'" (string-trim str)))
 
 (defun lua-completion-string-for (expr libs locals)
   "Construct a string of Lua code to print completions.
-
 The `expr' arg should be the input string (which may contain dots
 for table lookup), and `libs' should be a list of the format returned
 by `lua-local-libs', or nil."
-  (mapconcat 'identity
-             `("do"
-               "local clone = function(t)"
-               "  local n = {} for k,v in pairs(t) do n[k] = v end return n"
-               "end"
+  (apply 'concat
+	 `("__emacs_lua_complete({"
+	   ,(string-join
+	     (mapcar 'lua-completion-trim-input (split-string expr "\\." t)) ",")
+	   "},{"
+	   ,(string-join
+	     (mapcar (lambda (l) (apply 'format "{var='%s',lib=%s}" l)) libs) ",")
+	   "},{"
+	   ,(string-join (mapcar (apply-partially 'format "'%s'") locals) ",")
+	   "}," ,(number-to-string lua-shell-maximum-completions) ")")))
 
-               ;; Completion context starts as just a clone of _G.
-               "local top_ctx = clone(_G)"
-               ;; But then we take all matches of local x = require y from
-               ;; our code buffer and stuff them into the completion table too.
-               ,@(mapcar (lambda (l)
-                           (format "local got,req=pcall(require,%s) top_ctx['%s'] = got and req or true"
-                                   (cadr l) (car l))) libs)
-               ;; Top-level locals should also provide completion candidates.
-               ;; We don't know anything about what they contain, so just
-               ;; initialize them to an empty table for 1-level completion.
-               ,@(mapcar (apply-partially 'format "top_ctx['%s'] = {}") locals)
-
-               ;; recursively delve into context based on input_parts
-               "local function cpl_for(input_parts, ctx, pre)"
-               "  if type(ctx) ~= \"table\" then return {} end"
-;	       "  print('>>>>>Not table, input parts: ',#input_parts,'<<<<')"
-               "  if #input_parts == 0 and ctx ~= top_ctx then"
-               "    return pre..ctx"
-               "  elseif #input_parts == 1 then" ; the last segment of input
-               "    local matches = {}"
-               "    for k in pairs(ctx) do"
-;	       "      print('>>>>>Searching:',k,'<<<<')"
-               "      if k:find('^' .. input_parts[1]) then"
-               "        table.insert(matches, pre..k)"
-               "      end"
-               "    end"
-               "    return matches"
-               "  else" ; more segments of input remain; descend into ctx table
-               "    local tok = table.remove(input_parts, 1)"
-;	       "    print('>>>>>Descending with: ',token1,' #',#input_parts,'<<<<')"
-               "    return cpl_for(input_parts, ctx[tok],pre..tok..'.')"
-               "  end"
-               "end"
-
-               ;; this is a table of the segments of the input
-               "local input = {"
-               ,@(mapcar 'lua-completion-trim-input (split-string expr "\\.")) "}"
-               ;; spit it out to a file; lua-mode can't send data back to emacs
-
-               "for _,l in ipairs(cpl_for(input, top_ctx,\"\")) do"
-               "  print(l)"
-               "end"
-               "end") " "))
-
-(defvar lua-local-require-completions nil
-  "During completion, scan file for local require calls for context.
-
-Defaults to nil because this will cause code to be loaded during completion.
-Loading arbitrary code can have unexpected side-effects, so use with caution.")
+(defvar lua-local-require-completions t
+  "During completion, scan file for local require calls for context.")
 
 (defvar lua-local-require-regexp
   "^local\\s-+\\([^ \n]+\\)\\s-*=\\s-*require[( ]+\\([^ )\n]+\\)"
@@ -1993,8 +1961,7 @@ the string."
     (lua-mimic-whitespace string (lua--get-completions expr libs locals))))
 
 (defconst lua-completion-function
-  ;;can't use with-cache because we don't return full completion list
-  (completion-table-dynamic 'lua-complete-string))
+  (completion-table-with-cache 'lua-complete-string))
 (defun lua-complete-function ()
   "Completion function for `completion-at-point-functions'.
 Maps the expression and provides a cached function returning completion table."
