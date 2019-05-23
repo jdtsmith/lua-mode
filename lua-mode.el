@@ -315,7 +315,7 @@ If the latter is nil, the keymap translates into `lua-mode-map' verbatim.")
  key like `{' is pressed")
 (make-variable-buffer-local 'lua-electric-flag)
 
-(defcustom lua-prompt-regexp "[^\n]*\\(>[\t ]+\\)+$"  ;"\(\n|^\)>[\t ]+"
+(defcustom lua-prompt-regexp "^\\(>[\t ]+\\)+"  ;"\(\n|^\)>[\t ]+"
   "Regexp which matches the Lua program's prompt."
   :type  'regexp
   :group 'lua)
