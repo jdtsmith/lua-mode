@@ -1858,7 +1858,7 @@ by `lua-local-libs', or nil."
   (apply 'concat
 	 `("__emacs_lua_complete({"
 	   ,(string-join
-	     (mapcar 'lua-completion-trim-input (split-string expr "\\." t)) ",")
+	     (mapcar 'lua-completion-trim-input (split-string expr "\\.")) ",")
 	   "},{"
 	   ,(string-join
 	     (mapcar (lambda (l) (apply 'format "{var='%s',lib=%s}" l)) libs) ",")
