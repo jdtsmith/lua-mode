@@ -1861,7 +1861,7 @@ by `lua-local-libs', or nil."
 	     (mapcar 'lua-completion-trim-input (split-string expr "\\.")) ",")
 	   "},{"
 	   ,(string-join
-	     (mapcar (lambda (l) (apply 'format "{var='%s',lib=%s}" l)) libs) ",")
+	     (mapcar (lambda (l) (apply 'format "{var='%s',lib='%s'}" l)) libs) ",")
 	   "},{"
 	   ,(string-join (mapcar (apply-partially 'format "'%s'") locals) ",")
 	   "}," ,(number-to-string lua-shell-maximum-completions) ")")))
