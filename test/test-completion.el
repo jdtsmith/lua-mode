@@ -48,16 +48,16 @@
 	  locals (lua-top-level-locals (mapcar 'car libs)))
     (run-lua)
     (with-current-buffer lua-process-buffer
-      (setq comp-lib (lua--get-completions "xy" libs locals)
+      (setq comp-lib (sort (lua--get-completions "xy" libs locals) #'string-lessp)
 	    comp-lib-value (lua--get-completions "xyz.ab" libs locals)
 	    comp-lib-mult (sort (lua--get-completions "xyz." libs locals) #'string-lessp)))))
 
-  (it "completes locally-required libraries"
-      (expect comp-lib :to-equal '("xyz")))
-
   (it "initializes libs and locals correctly"
-      (expect libs :to-equal '(("xyz" "'file'")))
+      (expect libs :to-equal '(("xyz" "file")))
       (expect locals :to-be nil))
+
+  (it "completes locally-required libraries"
+      (expect comp-lib :to-equal '("xyz" "xyz.abc" "xyz.def")))
       
   (it "completes single value from locally-required libraries"
       (expect comp-lib-value :to-equal '("xyz.abc")))

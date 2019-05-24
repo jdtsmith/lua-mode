@@ -315,7 +315,7 @@ If the latter is nil, the keymap translates into `lua-mode-map' verbatim.")
  key like `{' is pressed")
 (make-variable-buffer-local 'lua-electric-flag)
 
-(defcustom lua-prompt-regexp "^\\(>[\t ]+\\)+"  ;"\(\n|^\)>[\t ]+"
+(defcustom lua-prompt-regexp "^\\(>[\t ]+\\)+"
   "Regexp which matches the Lua program's prompt."
   :type  'regexp
   :group 'lua)
@@ -1795,7 +1795,7 @@ output will be left in lua-shell-redirected-output."
 	       (generate-new-buffer lua-shell-output-buffer-name))))
       (with-current-buffer lua-shell-output-buffer (erase-buffer))
       (lua-send-string command lua-shell-output-buffer process)
-      (while (not comint-redirect-completed) 
+      (while (not comint-redirect-completed)
 	(accept-process-output process))
       (comint-redirect-cleanup))))
 
