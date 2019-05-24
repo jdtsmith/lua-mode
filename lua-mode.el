@@ -1960,13 +1960,38 @@ the string."
 	  (locals (lua-top-level-locals (mapcar 'car libs))))
     (lua-mimic-whitespace string (lua--get-completions expr libs locals))))
 
-(defconst lua-completion-function
-  (completion-table-with-cache 'lua-complete-string))
+;; Sort completions with fewest .'s first
+(defun lua--sort-completions (list)
+  (sort list
+	(lambda (a b)
+	  (let ((sa (- (length a) (length (remove ?. a))))
+		(sb (- (length b) (length (remove ?. b)))))
+	    (if (eq sa sb) (string< a b) (< sa sb))))))
+
+(defvar lua-last-completed nil
+  "The last lua variable completed")
+(defvar lua-completions nil
+  "The list of completions for the last lua variable completed")
+(defun lua-sorted-completion-table (string pred action)
+  "Perform sorted, cached completion of lua global string.
+Suitable for a completion-at-point-functions function"
+  (cond
+   ((eq (car-safe action) 'boundaries) nil)
+   ((eq action 'metadata)
+    `(metadata (display-sort-function . ,#'lua--sort-completions)))
+   (t (or (when (and lua-last-completed
+		     (string-prefix-p lua-last-completed string))
+	    (complete-with-action action lua-completions string pred))
+	  (unless (eq action 'lambda) ; successful test-completions can be nil
+	    (setq lua-completions (lua-complete-string string)
+		  lua-last-completed string)
+	    (complete-with-action action lua-completions string pred))))))
+  
 (defun lua-complete-function ()
   "Completion function for `completion-at-point-functions'.
 Maps the expression and provides a cached function returning completion table."
   (let ((start-of-expr (lua-start-of-expr)))
-    (list start-of-expr (point) lua-completion-function)))
+    (list start-of-expr (point) 'lua-sorted-completion-table)))
 
 (defun lua-maybe-skip-shebang-line (start)
   "Skip shebang (#!/path/to/interpreter/) line at beginning of buffer.
