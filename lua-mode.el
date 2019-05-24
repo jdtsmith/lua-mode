@@ -1643,6 +1643,7 @@ This function just searches for a `end' at the beginning of a line."
    'identity
    `(
      ,(concat "dofile(\"" lua-process-complete-code-filename "\")")
+     "os.execute('stty -echo -onlcr')"
      "local loadstring = loadstring or load"
      "function luamode_loadstring(str, displayname, lineoffset)"
      "  if lineoffset > 1 then"
