@@ -1870,7 +1870,7 @@ by `lua-local-libs', or nil."
   "During completion, scan file for local require calls for context.")
 
 (defvar lua-local-require-regexp
-  "^local\\s-+\\([^ \n]+\\)\\s-*=\\s-*require[( ]+\\([^ )\n]+\\)"
+  "^local\\s-+\\([^ \n]+\\)\\s-*=\\s-*require\\s-*(?\\s-*\\(['\"]?\\)\\([^)\n]+\\)\\2"
   "A regexp to match lines where a library is required and put in a local.")
 
 (defvar lua-top-level-local-regexp
@@ -1889,7 +1889,7 @@ is the string that is passed to require."
         ;; find each match of "local x = require y" and save for later
         (while (lua-find-regexp 'forward lua-local-require-regexp)
           (add-to-list 'libs (list (match-string-no-properties 1)
-                                   (match-string-no-properties 2))))
+                                   (match-string-no-properties 3))))
         libs))))
 
 (defun lua-top-level-locals (lib-names)
